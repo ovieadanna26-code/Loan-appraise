@@ -20,3 +20,14 @@
   window.markNotificationRead=async id=>{const u=await user();const sb=window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY);await sb.from('notifications').update({is_read:true}).eq('id',id).eq('user_id',u.id);loadNotifications()};
   window.addEventListener('load',()=>{addUI();setTimeout(loadNotifications,1200);setInterval(loadNotifications,20000)});
 })();
+
+/* Identity evidence in Supervisor Complete Credit File */
+(function(){
+ const client=()=>window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY);
+ function addMedia(){
+   const card=document.getElementById('reviewContent'); if(!card||card.querySelector('#identityEvidence'))return;
+   const original=window.openReview; if(typeof original!=='function')return setTimeout(addMedia,250);
+   window.openReview=function(id){original(id);setTimeout(async()=>{try{const {data:a}=await client().from('loan_applications').select('customer_id,customers(photo_path,signature_path,identity_captured_at)').eq('id',id).single();const c=a?.customers;if(!c)return;const box=document.createElement('div');box.id='identityEvidence';box.className='card';box.innerHTML='<h3>Customer Identity Evidence</h3><p id="identityEvidenceStatus">Loading live photo and signature...</p><div style="display:flex;gap:24px;flex-wrap:wrap"><div><b>Live Photo</b><br><img id="supervisorPhoto" style="max-width:220px;max-height:220px;border-radius:12px;border:1px solid #ddd"></div><div><b>Signature</b><br><img id="supervisorSignature" style="max-width:320px;max-height:160px;border:1px solid #ddd;border-radius:8px"></div></div>';card.prepend(box);if(!c.photo_path||!c.signature_path){box.querySelector('#identityEvidenceStatus').textContent='Photo/signature have not yet been captured for this customer.';return}const p=await client().storage.from('customer-identity').createSignedUrl(c.photo_path,3600);const s=await client().storage.from('customer-identity').createSignedUrl(c.signature_path,3600);if(p.error||s.error)throw (p.error||s.error);box.querySelector('#supervisorPhoto').src=p.data.signedUrl;box.querySelector('#supervisorSignature').src=s.data.signedUrl;box.querySelector('#identityEvidenceStatus').textContent='Identity captured: '+(c.identity_captured_at?new Date(c.identity_captured_at).toLocaleString():'Recorded');}catch(e){const x=document.getElementById('identityEvidenceStatus');if(x)x.textContent='Unable to load identity evidence: '+e.message}},0)};
+ }
+ window.addEventListener('load',()=>setTimeout(addMedia,700));
+})();
