@@ -1,0 +1,12 @@
+// Resolve returned application from persisted session or Supabase instead of relying on a stale in-memory array.
+(()=>{
+ const KEY='loanappraise_returned_session';
+ const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch{return null}};
+ const findBySession=()=>{const s=read();if(!s?.applicationId)return null;return (window.apps||[]).find(a=>String(a.id)===String(s.applicationId))||null};
+ async function resolve(){const s=read();let a=findBySession();if(a)return a;if(!s?.applicationId||!window.sb)return null;const r=await sb.from('loan_applications').select('*,customers(*)').eq('id',s.applicationId).single();if(r.error||!r.data)return null;window.apps=window.apps||[];const i=window.apps.findIndex(x=>String(x.id)===String(r.data.id));if(i>=0)window.apps[i]=r.data;else window.apps.push(r.data);return r.data}
+ async function repairSelect(){const s=read();if(!s?.applicationId)return;const a=await resolve();if(!a)return;const el=document.getElementById('appraisalApplication');if(el){let o=[...el.options].find(x=>String(x.value)===String(a.id));if(!o){o=document.createElement('option');o.value=a.id;o.textContent=(a.reference||a.application_number||'Returned Application')+' — '+((a.customers||{}).full_name||'Customer')+' (Returned for Correction)';el.appendChild(o)}el.value=a.id;el.dispatchEvent(new Event('change',{bubbles:true}))}const rec=document.getElementById('overrideRecommended');if(rec&&Number(a.recommended_amount)>0&&!Number(rec.value))rec.value=a.recommended_amount}
+ window.resolveReturnedApplication=resolve;window.repairReturnedAppraisalSelection=repairSelect;
+ document.addEventListener('click',async e=>{const b=e.target.closest('[data-page="appraisal"]');if(b)setTimeout(repairSelect,100)},true);
+ document.addEventListener('submit',async e=>{if(e.target.id!=='appraisalForm')return;const s=read();if(!s?.applicationId)return;const a=await resolve();if(!a)return;const sel=document.getElementById('appraisalApplication');if(sel){sel.value=String(a.id);if(!sel.value){e.preventDefault();alert('The returned application could not be resolved. Please reopen the returned application from the Loan Officer queue.');}}},true);
+ document.addEventListener('DOMContentLoaded',()=>{repairSelect();setInterval(repairSelect,500)});
+})();
