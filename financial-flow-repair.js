@@ -1,36 +1,19 @@
-// Financial flow repair: authoritative KYC data + returned-application context.
+// Authoritative financial/appraisal flow. Returned applications resolve from Supabase, not stale window.apps.
 (()=>{
+ const KEY='loanappraise_returned_session';
  const n=v=>{const x=Number(String(v??'').replace(/[^0-9.-]/g,''));return Number.isFinite(x)?x:0};
+ const $=id=>document.getElementById(id);
  const money=n=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(n);
- const calcPayment=(p,annual,months)=>{p=n(p);annual=n(annual);months=n(months)||12;const r=annual/1200;return r?p*(r*Math.pow(1+r,months))/(Math.pow(1+r,months)-1):p/months};
- const calcPrincipal=(pay,annual,months)=>{pay=n(pay);annual=n(annual);months=n(months)||12;const r=annual/1200;return r?pay*(Math.pow(1+r,months)-1)/(r*Math.pow(1+r,months)):pay*months};
- const returned=()=>{try{return JSON.parse(localStorage.getItem('loanappraise_returned_session')||'null')}catch{return null}};
- async function authoritative(id){const {data,error}=await sb.from('customers').select('*').eq('id',id).single();if(error||!data)throw Error('Unable to load the latest KYC financial information.');return data}
- document.addEventListener('submit',async e=>{
-  if(e.target.id!=='appraisalForm')return;
-  e.preventDefault();e.stopImmediatePropagation();
-  try{
-   const {data:{user}}=await sb.auth.getUser();if(!user)throw Error('Your session has expired. Please sign in again.');
-   const session=returned();const selector=document.getElementById('appraisalApplication');
-   const selectedId=selector?.value||session?.applicationId||'';
-   if(selector&&session?.applicationId&&String(selectedId)!==String(session.applicationId))selector.value=String(session.applicationId);
-   const id=selector?.value||selectedId;
-   const a=(window.apps||[]).find(x=>String(x.id)===String(id));
-   if(!a)throw Error('The returned application could not be loaded. Please open the returned file again.');
-   const c=await authoritative(a.customer_id);const income=n(c.monthly_income),expenses=n(c.monthly_expenses),debt=n(a.existing_monthly_debt);
-   if(income<=0)throw Error('Monthly income is missing from Customer KYC. Please correct KYC before appraisal.');
-   const cash=Math.max(0,income-expenses-debt),requested=n(a.amount),annual=n(a.annual_rate),tenure=n(a.tenure)||12;
-   const payment=calcPayment(requested,annual,tenure),dr=income?debt/income*100:100,coll=requested?n(a.collateral_value)/requested*100:0;
-   let score=(payment<=cash*.4?40:payment<=cash*.6?28:payment<=cash?15:0)+(dr<=20?20:dr<=35?15:dr<=50?8:0)+n($('stability').value)+(coll>=100?15:coll>=70?11:coll>=40?6:0)+n($('credit').value);score=Math.min(100,Math.round(score));
-   const override=n($('overrideRecommended').value);const saved=n(session?.recommended??a.recommended_amount);const recommended=override?Math.min(override,requested):saved>0?Math.min(saved,requested):Math.max(0,Math.min(requested,calcPrincipal(cash*.4,annual,tenure)));const recommendedPayment=calcPayment(recommended,annual,tenure);
-   const patch={recommended_amount:recommended,monthly_repayment:recommendedPayment,available_cash_flow:cash,appraisal_score:score,appraisal_decision:score>=75?'recommended':score>=50?'review':'not recommended',appraisal_notes:$('appraisalNotes').value,status:'pending_supervisor',appraised_by:user.id,appraised_at:new Date().toISOString()};
-   const {error}=await sb.from('loan_applications').update(patch).eq('id',a.id);if(error)throw error;
-   if(window.apps){const local=window.apps.find(x=>String(x.id)===String(a.id));if(local){local.customers=c;Object.assign(local,patch)}}
-   localStorage.removeItem('loanappraise_returned_session');window.returnedApplicationSession=null;window.editAppId=null;window.editCustomerId=null;
-   alert(`Appraisal submitted successfully.\nMonthly income: ${money(income)}\nMonthly expenses: ${money(expenses)}\nAvailable cash flow: ${money(cash)}\nRecommended amount: ${money(recommended)}\nMonthly repayment: ${money(recommendedPayment)}`);
-   if(window.refresh)await window.refresh();if(typeof show==='function')show('applications',false);
-  }catch(err){alert(err.message||'Unable to complete appraisal.')}
- },true);
- const original=window.openReview;
- window.openReview=async id=>{try{const {data:a,error}=await sb.from('loan_applications').select('*,customers(*)').eq('id',id).single();if(error||!a)throw Error('Unable to load the complete application.');const local=(window.apps||[]).find(x=>String(x.id)===String(id));if(local){Object.assign(local,a);local.customers=a.customers}if(original)original(id)}catch(err){alert(err.message||'Unable to load the complete application.')}};
+ const payment=(p,annual,months)=>{p=n(p);annual=n(annual);months=n(months)||12;const r=annual/1200;return r?p*(r*Math.pow(1+r,months))/(Math.pow(1+r,months)-1):p/months};
+ const principal=(pay,annual,months)=>{pay=n(pay);annual=n(annual);months=n(months)||12;const r=annual/1200;return r?pay*(Math.pow(1+r,months)-1)/(r*Math.pow(1+r,months)):pay*months};
+ const session=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch{return null}};
+ async function resolve(){const s=session();const id=s?.applicationId||window.editAppId;if(!id)return null;let a=(window.apps||[]).find(x=>String(x.id)===String(id));if(a)return a;const r=await sb.from('loan_applications').select('*,customers(*)').eq('id',id).single();if(r.error||!r.data)return null;window.apps=window.apps||[];window.apps.push(r.data);return r.data}
+ async function restore(){const a=await resolve();if(!a)return;const c=a.customers||{};const set=(id,v)=>{const e=$(id);if(e&&v!==undefined&&v!==null)e.value=v};
+  const cid=c.id||a.customer_id;set('appCustomer',cid);set('identityCustomer',cid);set('appraisalApplication',a.id);set('appAmount',a.amount);set('appTenure',a.tenure);set('appRate',a.annual_rate);set('appDebt',a.existing_monthly_debt||0);set('appCollateral',a.collateral_value||0);set('overrideRecommended',a.recommended_amount||0);set('appraisalNotes',a.appraisal_notes||'');
+  const f=$('appraisalApplication');if(f&&!f.value){const o=document.createElement('option');o.value=a.id;o.textContent=(a.reference||'Returned Application')+' — '+(c.full_name||'Customer');f.appendChild(o);f.value=a.id}
+ }
+ window.resolveReturnedLoanApplication=resolve;window.restoreReturnedLoanApplication=restore;
+ document.addEventListener('click',e=>{if(e.target.closest('[data-page="appraisal"]'))setTimeout(restore,120)},true);
+ document.addEventListener('submit',async e=>{if(e.target.id!=='appraisalForm')return;e.preventDefault();e.stopImmediatePropagation();try{const a=await resolve();if(!a)throw Error('Returned application could not be resolved. Please reopen it from Returned Work.');const c=a.customers||await sb.from('customers').select('*').eq('id',a.customer_id).single().then(r=>r.data);if(!c)throw Error('Customer KYC could not be resolved.');const income=n(c.monthly_income),expenses=n(c.monthly_expenses),debt=n(a.existing_monthly_debt),cash=Math.max(0,income-expenses-debt),requested=n(a.amount),annual=n(a.annual_rate),tenure=n(a.tenure)||12,basePayment=payment(requested,annual,tenure),override=n($('overrideRecommended')?.value),s=session();const saved=n(s?.recommended)||n(a.recommended_amount),recommended=override?Math.min(override,requested):saved?Math.min(saved,requested):Math.min(requested,principal(cash*.4,annual,tenure));const monthly=payment(recommended,annual,tenure);const stability=n($('stability')?.value),credit=n($('credit')?.value),score=Math.min(100,Math.round((basePayment<=cash*.4?40:basePayment<=cash*.6?28:basePayment<=cash?15:0)+(income?Math.max(0,20-(debt/income*100>50?20:debt/income*100>35?12:debt/income*100>20?5:0)):0)+stability+credit+(requested&&n(a.collateral_value)/requested>=1?15:n(a.collateral_value)/requested>=.7?11:6)));const patch={recommended_amount:recommended,monthly_repayment:monthly,available_cash_flow:cash,appraisal_score:score,appraisal_decision:score>=75?'recommended':score>=50?'review':'not recommended',appraisal_notes:$('appraisalNotes')?.value||'',status:'pending_supervisor',appraised_by:(await sb.auth.getUser()).data.user?.id,appraised_at:new Date().toISOString()};const r=await sb.from('loan_applications').update(patch).eq('id',a.id);if(r.error)throw r.error;Object.assign(a,patch);localStorage.removeItem(KEY);window.editAppId=null;alert(`Appraisal submitted successfully.\nRecommended amount: ${money(recommended)}\nMonthly repayment: ${money(monthly)}`);if(window.refresh)await window.refresh();if(typeof show==='function')show('applications',false)}catch(err){alert(err.message||'Unable to complete appraisal.')}},true);
+ document.addEventListener('DOMContentLoaded',()=>{restore();setInterval(restore,700)});
 })();
