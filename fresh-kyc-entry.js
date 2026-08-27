@@ -1,0 +1,7 @@
+// Fresh KYC entry: reset only the entry form, never delete submitted records.
+(()=>{
+ const ids=['kycName','kycDob','kycGender','kycMarital','kycPhone','kycEmail','kycNin','kycBvn','kycAddress','kycEmployment','kycEmployer','kycJob','kycIncome','kycExpenses','nokName','nokRelationship','nokPhone','nokAddress'];
+ function reset(){const f=document.getElementById('kycForm');if(!f)return;f.reset();ids.forEach(id=>{const e=document.getElementById(id);if(e&&e.tagName==='INPUT')e.value=''});document.getElementById('kycGender')?.dispatchEvent(new Event('change'));document.getElementById('kycMarital')?.dispatchEvent(new Event('change'));document.getElementById('kycEmployment')?.dispatchEvent(new Event('change'));localStorage.removeItem('loanappraise_current_customer');window.lastCreatedCustomerId=null;f.querySelector('button[type="submit"]')?.focus()}
+ function wire(){const f=document.getElementById('kycForm');if(!f||f.dataset.freshEntry)return;f.dataset.freshEntry='1';const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='＋ New Fresh KYC Entry';b.style.marginLeft='8px';b.addEventListener('click',()=>{if(confirm('Start a fresh KYC entry? The previously submitted customer/application will remain محفوظ and will not be deleted.'))reset()});f.querySelector('button[type="submit"]')?.after(b)}
+ document.addEventListener('DOMContentLoaded',wire);new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});setInterval(wire,1200);
+})();
