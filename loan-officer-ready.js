@@ -1,0 +1,1 @@
+document.addEventListener('loanOfficerReady',async()=>{try{if(window.refresh)await window.refresh();if(window.profile?.role==='officer'){const d=document.getElementById('dashboard');if(d){const h=d.querySelector('h1');if(h)h.textContent=`Welcome, ${window.profile.full_name||'Loan Officer'}`;}}}catch(e){console.warn('Loan officer UI initialization:',e.message);}});
