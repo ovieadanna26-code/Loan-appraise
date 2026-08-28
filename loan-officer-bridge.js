@@ -5,15 +5,8 @@
   window.sb=sb;
   window.$=id=>document.getElementById(id);
   window.profile=null;window.customers=[];window.apps=[];window.audit=[];
-  window.show=function(id){
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-    const p=document.getElementById(id);if(p)p.classList.add('active');
-  };
-  window.log=async function(applicationId,action,comment){
-    if(!window.profile)return;
-    const r=await sb.from('audit_logs').insert({application_id:applicationId||null,action,comment:comment||'',performed_by:window.profile.id});
-    if(r.error)console.warn('Audit log:',r.error.message);
-  };
+  window.show=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));const p=document.getElementById(id);if(p)p.classList.add('active');};
+  window.log=async function(applicationId,action,comment){if(!window.profile)return;const r=await sb.from('audit_logs').insert({application_id:applicationId||null,action,comment:comment||'',performed_by:window.profile.id});if(r.error)console.warn('Audit log:',r.error.message);};
   window.refresh=async function(){
     if(!window.profile)return;
     const isOfficer=window.profile.role==='officer';
@@ -27,7 +20,7 @@
   };
   async function init(){
     const {data:{user}}=await sb.auth.getUser();
-    if(!user)return;
+    if(!user){window.profile=null;return;}
     const r=await sb.from('profiles').select('*').eq('id',user.id).single();
     if(r.error||!r.data)return;
     window.profile=r.data;
@@ -38,4 +31,5 @@
     document.dispatchEvent(new CustomEvent('loanOfficerReady'));
   }
   window.loanOfficerReady=init();
+  sb.auth.onAuthStateChange((event)=>{if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED')init();if(event==='SIGNED_OUT'){window.profile=null;window.customers=[];window.apps=[];}});
 })();
