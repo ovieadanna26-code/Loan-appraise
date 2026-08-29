@@ -1,8 +1,9 @@
-/* LoanAppraise authentication — independent of Supabase/frontend loading. */
+/* LoanAppraise authentication — stable demo accounts, independent of frontend/Supabase loading. */
 (function(){'use strict';
 const DEMO_USERS={
  'admin@loanappraise.com':{password:'Admin123!',role:'admin',name:'Administrator'},
  'officer@loanappraise.com':{password:'Officer123!',role:'loan_officer',name:'Loan Officer'},
+ 'officer1@loanappraise.com':{password:'Officer123!',role:'loan_officer',name:'Loan Officer 1'},
  'appraiser@loanappraise.com':{password:'Appraiser123!',role:'loan_officer',name:'Loan Appraiser'},
  'supervisor@loanappraise.com':{password:'Supervisor123!',role:'supervisor',name:'Supervisor'},
  'approver@loanappraise.com':{password:'Approver123!',role:'supervisor',name:'Final Approver'}
