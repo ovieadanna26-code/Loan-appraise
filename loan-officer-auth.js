@@ -1,0 +1,6 @@
+/* Standalone authentication for the rebuilt Loan Officer frontend. */
+(function(){'use strict';
+ async function signIn(e){e.preventDefault();const err=document.getElementById('loginError');err.textContent='';try{const sb=window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY);const {data,error}=await sb.auth.signInWithPassword({email:document.getElementById('loginEmail').value.trim(),password:document.getElementById('loginPassword').value});if(error)throw error;if(data.session)window.dispatchEvent(new CustomEvent('loanOfficerAuthenticated',{detail:{session:data.session}}));}catch(x){err.textContent=x.message||'Unable to sign in.';}}
+ function init(){const f=document.getElementById('loginForm');if(f&&!f.dataset.bound){f.dataset.bound='1';f.addEventListener('submit',signIn)}}
+ document.addEventListener('DOMContentLoaded',init);window.addEventListener('loanOfficerAuthenticated',function(){const l=document.getElementById('loginScreen');if(l)l.style.display='none'});
+})();
