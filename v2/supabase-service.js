@@ -1,0 +1,7 @@
+/* LoanAppraise 2.0 persistence layer. Uses the existing Supabase client/config. */
+(function(){'use strict';
+window.LoanAppraiseDB={
+ async saveDraft(client,user,form){if(!client||!user)throw new Error('Not authenticated');const payload={officer_id:user.id,status:'draft',customer_data:form.customer||{},loan_request:form.loan||{},business_data:form.business||{},financial_data:form.financials||{},products:form.products||[],balance_sheet:form.balance||{},collateral:form.collateral||{},updated_at:new Date().toISOString()};const {data,error}=await client.from('loan_applications').upsert(payload,{onConflict:'id'}).select().single();if(error)throw error;return data;},
+ async submit(client,user,form){if(!client||!user)throw new Error('Not authenticated');const payload={officer_id:user.id,status:'pending_supervisor',customer_data:form.customer||{},loan_request:form.loan||{},business_data:form.business||{},financial_data:form.financials||{},products:form.products||[],balance_sheet:form.balance||{},collateral:form.collateral||{},submitted_at:new Date().toISOString(),updated_at:new Date().toISOString()};const {data,error}=await client.from('loan_applications').upsert(payload,{onConflict:'id'}).select().single();if(error)throw error;return data;},
+ async mine(client,user){const {data,error}=await client.from('loan_applications').select('*').eq('officer_id',user.id).order('updated_at',{ascending:false});if(error)throw error;return data||[];}
+};})();
