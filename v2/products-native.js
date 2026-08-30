@@ -1,0 +1,20 @@
+/* Final native Products step. Loaded after app.js and owns only step 4. */
+(function(){'use strict';
+ const money=v=>'₦'+(Number(v)||0).toLocaleString('en-NG',{maximumFractionDigits:0});
+ const num=v=>Number(String(v??'').replace(/,/g,''))||0;
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function renderProducts(){
+  if(window.step!==4)return; const a=document.getElementById('app'); if(!a)return;
+  const ps=Array.isArray(window.state?.products)?window.state.products:[]; if(!ps.length)ps.push({name:'',sales:'',cost:''}); window.state.products=ps;
+  const totals=ps.reduce((t,p)=>{t.s+=num(p.sales);t.c+=num(p.cost);return t},{s:0,c:0}); const gp=totals.s-totals.c;
+  const form=a.querySelector('.form'); if(!form)return;
+  form.innerHTML=`<div class="card"><h3>Products / Trading Lines</h3><p class="muted">Add the main products or services sold by the customer. Gross profit and margin calculate automatically.</p><div id="native-products">${ps.map((p,i)=>`<div class="product-row" data-i="${i}" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:12px"><div class="field"><label>Product / Service</label><input data-p="name" value="${esc(p.name)}"></div><div class="field"><label>Monthly Sales</label><input data-p="sales" inputmode="decimal" value="${esc(p.sales)}"></div><div class="field"><label>Monthly Cost</label><input data-p="cost" inputmode="decimal" value="${esc(p.cost)}"></div><div class="metric"><small>Gross Profit</small><b data-gp>${money(num(p.sales)-num(p.cost))}</b></div><button type="button" class="secondary" data-remove="${i}">Remove</button></div>`).join('')}</div><button type="button" class="secondary" id="native-add-product">+ Add Product</button><div class="cards" style="margin-top:18px"><div class="metric"><small>Total Sales</small><b id="pt-sales">${money(totals.s)}</b></div><div class="metric"><small>Total Cost</small><b id="pt-cost">${money(totals.c)}</b></div><div class="metric"><small>Gross Profit</small><b id="pt-profit">${money(gp)}</b></div><div class="metric"><small>Gross Margin</small><b id="pt-margin">${(totals.s?gp/totals.s*100:0).toFixed(1)}%</b></div></div></div><div class="actions"><button type="button" class="secondary" id="products-back">Back</button><button type="button" class="primary" id="products-next">Save & Continue</button></div>`;
+  const sync=()=>{a.querySelectorAll('.product-row').forEach(r=>{const i=Number(r.dataset.i);ps[i].name=r.querySelector('[data-p=name]').value;ps[i].sales=r.querySelector('[data-p=sales]').value;ps[i].cost=r.querySelector('[data-p=cost]').value;r.querySelector('[data-gp]').textContent=money(num(ps[i].sales)-num(ps[i].cost))});const s=ps.reduce((x,p)=>x+num(p.sales),0),c=ps.reduce((x,p)=>x+num(p.cost),0),g=s-c;a.querySelector('#pt-sales').textContent=money(s);a.querySelector('#pt-cost').textContent=money(c);a.querySelector('#pt-profit').textContent=money(g);a.querySelector('#pt-margin').textContent=(s?g/s*100:0).toFixed(1)+'%';localStorage.setItem('loanappraise_v2_draft',JSON.stringify(window.state));};
+  a.querySelectorAll('[data-p]').forEach(x=>x.addEventListener('input',sync));
+  a.querySelector('#native-add-product').onclick=()=>{sync();ps.push({name:'',sales:'',cost:''});renderProducts()};
+  a.querySelectorAll('[data-remove]').forEach(x=>x.onclick=()=>{sync();ps.splice(Number(x.dataset.remove),1);renderProducts()});
+  a.querySelector('#products-back').onclick=()=>{sync();window.step=3;window.renderWizard()};
+  a.querySelector('#products-next').onclick=async()=>{sync();try{if(typeof window.saveDraft==='function')await window.saveDraft();window.step=5;window.renderWizard()}catch(e){console.error(e);if(typeof window.toast==='function')window.toast('Could not save Products: '+(e.message||e))}};
+ }
+ const old=window.renderWizard; window.renderWizard=function(){old();if(window.step===4)renderProducts()}; window.renderNativeProducts=renderProducts;
+})();
