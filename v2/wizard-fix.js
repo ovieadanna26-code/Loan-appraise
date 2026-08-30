@@ -8,7 +8,10 @@
   function val(k){const e=document.querySelector(`[data-key="${k}"]`);if(e)return num(e.value);return num(stored()[k]);}
   function setMetric(label,value){document.querySelectorAll('.metric').forEach(m=>{const s=m.querySelector('small'),b=m.querySelector('b');if(s&&b&&s.textContent.trim()===label)b.textContent=fmt(value);});}
   function recalc(){
-    const monthlySales=val('average_daily_sales')*val('business_days');
+    const s=stored();
+    const daily=val('average_daily_sales');
+    const days=val('business_days');
+    const monthlySales=(daily&&days)?daily*days:num(s.monthly_sales);
     const cashFlow=monthlySales-val('monthly_purchases')-val('rent')-val('salaries')-val('utilities')-val('transport')-val('other_business_expenses');
     const assets=['equipment_value','vehicle_value','property_value','other_assets','cash_at_hand','bank_balance_1','accounts_receivable'].reduce((a,k)=>a+val(k),0);
     const liabilities=['supplier_liabilities','bank_loans','other_borrowings'].reduce((a,k)=>a+val(k),0);
